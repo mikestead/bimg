@@ -15,12 +15,7 @@ import (
 	"strings"
 	"sync"
 	"unsafe"
-
-	d "github.com/tj/go-debug"
 )
-
-// debug is internally used to
-var debug = d.Debug("bimg")
 
 // VipsVersion exposes the current libvips semantic version
 const VipsVersion = string(C.VIPS_VERSION)
@@ -387,7 +382,6 @@ func vipsPreSave(image *C.VipsImage, o *vipsSaveOptions) (*C.VipsImage, error) {
 	}
 
 	if o.OutputICC != "" && vipsHasProfile(image) {
-		debug("Embedded ICC profile found, trying to convert to %s", o.OutputICC)
 		outputIccPath := C.CString(o.OutputICC)
 		defer C.free(unsafe.Pointer(outputIccPath))
 
@@ -506,7 +500,7 @@ func vipsSmartCrop(image *C.VipsImage, width, height int) (*C.VipsImage, error) 
 	return buf, nil
 }
 
-func vipsTrim(image *C.VipsImage) (int, int, int, int, error) {
+func vipsTrim(image *C.VipsImage, background Color, threshold float64) (int, int, int, int, error) {
 	defer C.g_object_unref(C.gpointer(image))
 
 	top := C.int(0)
@@ -514,7 +508,10 @@ func vipsTrim(image *C.VipsImage) (int, int, int, int, error) {
 	width := C.int(0)
 	height := C.int(0)
 
-	err := C.vips_find_trim_bridge(image, &top, &left, &width, &height)
+	err := C.vips_find_trim_bridge(image,
+		&top, &left, &width, &height,
+		C.double(background.R), C.double(background.G), C.double(background.B),
+		C.double(threshold))
 	if err != 0 {
 		return 0, 0, 0, 0, catchVipsError()
 	}
